@@ -46,3 +46,7 @@ _build_fe.env
 app/content/events/rk/*.mdx
 app/content/events/rm/*.mdx
 app/content/events/rd/*.mdx
+
+# local python env
+.venv/
+__pycache__/

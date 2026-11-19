@@ -1,0 +1,461 @@
+// UI/UX workshop review — ui-map (local only, not pushed)
+// Admin-1 choropleth (DisasterMap): header, in-map legend, zoom controls,
+// hover tooltip, selection outline, state overlays. Tokens from _ds.scss.
+@use 'uswds-core' as *;
+
+// ---- Header ----------------------------------------------------------------
+.map-card .map-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--ds-2) var(--ds-3);
+  flex-wrap: wrap;
+  margin-bottom: var(--ds-3);
+}
+.map-card .map-header__titles { min-width: 0; }
+.map-card .map-eyebrow { margin: 0 0 var(--ds-1); }
+// Inside the dashboard console the console bar already names hazard · stage ·
+// period, so the map's eyebrow would repeat it. Kept on scenario pages.
+.dash-console .map-card .map-eyebrow { display: none; }
+.map-card .map-title { margin: 0; }
+
+.map-header__meta {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--ds-2) var(--ds-3);
+  min-width: 0;
+}
+// Narrow cards: titles on one row, date + selected chip on their own row.
+.map-card .map-header--stacked {
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ds-2);
+  .map-header__meta { justify-content: flex-start; }
+}
+
+.map-date {
+  font-size: var(--ds-fs-lg);
+  font-weight: var(--ds-fw-bold);
+  color: var(--ds-text);
+  letter-spacing: 0.01em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+// Selected region chip (selected = --gauge border + --gauge-soft fill).
+.map-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--ds-1);
+  max-width: 100%;
+  min-height: 30px;
+  padding: 0 var(--ds-1) 0 var(--ds-3);
+  border: 1px solid var(--ds-accent);
+  border-radius: 999px;
+  background: var(--ds-accent-soft);
+  color: var(--ds-text);
+  font-size: var(--ds-fs-sm);
+  font-weight: var(--ds-fw-semibold);
+}
+.map-chip__label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.map-chip__country { font-weight: 400; color: var(--ds-text-2); }
+.map-chip__clear {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--ds-text-2);
+  cursor: pointer;
+  &:hover { background: rgba(16, 36, 44, 0.08); color: var(--ds-text); }
+}
+
+// ---- Map canvas --------------------------------------------------------------
+// min-height is set inline to the map height (300–620px), so overlays anchored
+// to the canvas sit on the map at every width.
+.map-canvas {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--ds-radius);
+
+  svg {
+    display: block;
+    transition: opacity 150ms ease;
+  }
+}
+
+// dashboard.scss sets `.map-card svg { width: 100% }` for the map itself; the
+// small UI icons inside the card must keep their own size.
+.map-card :is(.map-legend, .map-controls, .map-chip) svg {
+  width: auto;
+  flex: none;
+}
+
+// Dim the (blank or stale) map so the message reads as the state of the map.
+.map-canvas--muted svg {
+  opacity: 0.35;
+}
+
+// ---- Regions: hover, keyboard focus, selection ------------------------------
+.map-card .adm-path {
+  // Soft slate borders instead of white: the lightest data steps (#f7fbff
+  // "Minimal", #f5f5f5 "0 events") are near-white, so white borders made
+  // those regions vanish into the card. Fill colours are untouched.
+  stroke: #b3c0c5;
+  stroke-width: 0.5;
+  &.is-hover { filter: brightness(0.92); stroke: var(--ds-text); stroke-width: 1; }
+  // The global box-shadow focus ring does nothing on SVG; the visible ring is
+  // the .map-focus-ring overlay drawn by DisasterMap on keyboard focus.
+  &:focus, &:focus-visible { outline: none; box-shadow: none; }
+}
+.map-focus-ring {
+  pointer-events: none;
+  path {
+    fill: none;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+}
+.map-focus-ring__halo { stroke: #fff; stroke-width: 6; }
+.map-focus-ring__line { stroke: var(--ds-accent-strong); stroke-width: 3; stroke-dasharray: 6 3; }
+.map-selection {
+  pointer-events: none;
+  path {
+    fill: none;
+    stroke-linejoin: round;
+    vector-effect: non-scaling-stroke;
+  }
+}
+.map-selection__halo { stroke: #fff; stroke-width: 5; }
+.map-selection__line { stroke: var(--ds-text); stroke-width: 2.5; }
+
+// ---- Zoom controls (top-right) ----------------------------------------------
+.map-controls {
+  position: absolute;
+  top: var(--ds-2);
+  right: var(--ds-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--ds-1);
+  z-index: 2;
+}
+.map-controls__btn {
+  box-shadow: var(--ds-shadow-1);
+  color: var(--ds-text);
+  @media (max-width: 640px) {
+    width: 32px;
+    min-height: 32px;
+  }
+}
+
+// ---- Legend (bottom-left) ---------------------------------------------------
+.map-legend {
+  padding: var(--ds-2) var(--ds-3);
+  gap: var(--ds-1);
+}
+// Wide maps: compact card on the map, bottom-left, clear of the zoom column.
+.map-legend--overlay {
+  position: absolute;
+  left: var(--ds-2);
+  bottom: var(--ds-2);
+  z-index: 2;
+  max-width: min(320px, calc(100% - 64px));
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow: var(--ds-shadow-1);
+}
+// Narrow map cards: a strip under the map — never covers data, no inner scroll.
+.map-legend--below {
+  margin-top: var(--ds-2);
+}
+.map-legend--collapsed { padding: 0; }
+.map-legend--below.map-legend--collapsed { align-self: flex-start; width: max-content; max-width: 100%; }
+.map-legend__toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--ds-2);
+  width: 100%;
+  min-height: 28px;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--ds-text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  .map-legend--collapsed & { padding: var(--ds-1) var(--ds-3); min-height: 32px; }
+}
+.map-legend__chev {
+  flex: none;
+  color: var(--ds-text-2);
+  transition: transform 150ms ease;
+  .map-legend--collapsed & { transform: rotate(180deg); }
+}
+.map-legend__note {
+  margin: 2px 0 var(--ds-1);
+  font-size: var(--ds-fs-xs);
+  line-height: 1.4;
+  color: var(--ds-text-2);
+}
+.map-legend__items {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  color: var(--ds-text);
+}
+
+// ---- Hover tooltip ------------------------------------------------------------
+.map-tooltip {
+  position: absolute;
+  top: 0;
+  left: 0;
+  z-index: 3;
+  max-width: 260px;
+  padding: var(--ds-2) var(--ds-3);
+  border: 1px solid var(--ds-border);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface);
+  box-shadow: var(--ds-shadow-2);
+  color: var(--ds-text);
+  font-size: var(--ds-fs-sm);
+  line-height: 1.35;
+  pointer-events: none;
+  &[hidden] { display: none; }
+  p { margin: 0; }
+}
+.map-tooltip__name { font-weight: var(--ds-fw-bold); font-size: var(--ds-fs-md); }
+.map-tooltip .map-tooltip__country { margin-bottom: var(--ds-1); color: var(--ds-text-3); font-size: var(--ds-fs-xs); }
+.map-tooltip__value {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-weight: var(--ds-fw-semibold);
+  .ds-swatch { margin-top: 2px; }
+}
+.map-tooltip .map-tooltip__detail { margin-top: var(--ds-1); color: var(--ds-text-2); font-size: var(--ds-fs-xs); }
+.map-tooltip .map-tooltip__hint {
+  margin-top: var(--ds-1);
+  color: var(--ds-accent-strong);
+  font-size: var(--ds-fs-xs);
+  font-weight: var(--ds-fw-semibold);
+}
+
+// ---- In-map state overlay ---------------------------------------------------
+.map-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--ds-4);
+  pointer-events: none;
+  z-index: 4;
+}
+.map-overlay__msg.ds-state {
+  min-height: 0;
+  max-width: 30rem;
+  padding: var(--ds-4) var(--ds-5);
+  border-radius: var(--ds-radius);
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: var(--ds-shadow-2);
+  color: var(--ds-text);
+  font-size: var(--ds-fs-md);
+  font-weight: var(--ds-fw-semibold);
+  line-height: 1.4;
+}
+.map-overlay__msg.ds-state--error {
+  border: 1px solid var(--ds-danger);
+  color: var(--ds-danger);
+  .ds-state__title { color: var(--ds-danger); }
+}
+
+// ---- Focus country (scenario pages) --------------------------------------
+// Neighbours are context only: flat grey, light stroke, inert.
+.adm-path.map-context-path {
+  stroke: #d5d9dc;
+  stroke-width: 0.4;
+  pointer-events: none;
+}
+
+.map-focus-outline {
+  fill: none;
+  stroke: #1f2937;
+  stroke-width: 2.25;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+  pointer-events: none;
+}
+
+// ---- Lead-window row: five small maps, the lead selector --------------------
+// (WindowMapRow). Above the big map in the console's map pane, medium-range
+// flood dates only. It replaces the lead chips in the control bar at every
+// width; on phones it becomes a swipe strip.
+.map-row {
+  flex: none;
+  min-width: 0;
+  padding: var(--ds-4) var(--ds-card-pad) 0;
+}
+.map-row__head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--ds-1) var(--ds-3);
+  margin-bottom: var(--ds-2);
+}
+.map-row__title {
+  margin: 0;
+  font-size: var(--ds-fs-sm);
+  font-weight: var(--ds-fw-bold);
+  color: var(--ds-text);
+}
+.map-row__hint {
+  margin: 0;
+  font-size: var(--ds-fs-xs);
+  color: var(--ds-text-3);
+}
+.map-row__grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: var(--ds-2);   // = GAP in WindowMapRow.tsx
+}
+.map-row__cell {
+  appearance: none;
+  margin: 0;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--ds-1);
+  padding: var(--ds-1) var(--ds-1) var(--ds-1);
+  background: var(--ds-surface-2);
+  color: var(--ds-text);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  overflow: hidden;   // first frame draws at a fallback width; never spill
+  transition: border-color 0.15s ease, background 0.15s ease;
+
+  &:hover { border-color: var(--ds-accent); }
+  &:focus-visible { outline: none; box-shadow: var(--ds-focus); }
+  &.is-active {
+    border-color: var(--ds-selected-edge);
+    background: var(--ds-selected-fill);
+    box-shadow: inset 0 0 0 1px var(--ds-selected-edge);
+  }
+  &.is-active:focus-visible { box-shadow: inset 0 0 0 1px var(--ds-selected-edge), var(--ds-focus); }
+}
+.map-row__label {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--ds-1);
+  padding: 0 var(--ds-1);
+  line-height: var(--ds-lh-tight);
+}
+.map-row__win { font-size: var(--ds-fs-sm); font-weight: var(--ds-fw-bold); }
+.map-row__days { font-size: var(--ds-fs-xs); color: var(--ds-text-3); white-space: nowrap; }
+.map-row__cell.is-active .map-row__days { color: var(--ds-text-2); }
+.map-row__map {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  border-radius: var(--ds-radius-xs);
+  background: var(--ds-surface);
+  &.is-muted svg { opacity: 0.35; }
+}
+.map-row__status {
+  margin: var(--ds-2) 0 0;
+  font-size: var(--ds-fs-xs);
+  color: var(--ds-text-3);
+  &.is-error { color: var(--ds-danger); }
+}
+
+// The bare small-multiple drawing (DisasterMap `bare`): inert, thin strokes.
+.map-mini {
+  position: relative;
+  overflow: hidden;
+  pointer-events: none;
+  svg { display: block; width: 100%; height: 100%; }
+  svg.is-muted { opacity: 0.35; }
+  .adm-path { stroke: #b3c0c5; stroke-width: 0.25; }
+  .graticule { display: none; }
+  .map-selection__halo { stroke-width: 2.5; }
+  .map-selection__line { stroke-width: 1.25; }
+}
+
+// Lead chips are not shown while the map row is the selector — at every width
+// (phones get the row as a swipe strip, below).
+.dash-control.dash-control--lead-fallback { display: none; }
+
+// Phones: the five maps as a horizontal swipe strip, ~2.5 in view.
+@media (max-width: 640px) {
+  .map-row__grid {
+    grid-template-columns: repeat(5, var(--map-row-cell, 42%));
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    overscroll-behavior-x: contain;
+    padding-bottom: var(--ds-2);
+    scrollbar-width: thin;
+  }
+  .map-row__cell { scroll-snap-align: start; }
+  .map-row__hint::after { content: ' Swipe for later leads.'; }
+}
+
+// ---- Risk Knowledge: "Selected event / All disasters" view toggle -----------
+.rk-view {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--ds-2);
+  padding: var(--ds-4) var(--ds-card-pad) 0;
+}
+.rk-view__label { font-size: var(--ds-fs-xs); font-weight: var(--ds-fw-semibold); color: var(--ds-text-3); text-transform: uppercase; letter-spacing: 0.06em; }
+.rk-view__btn {
+  appearance: none;
+  min-height: 36px;
+  padding: 0 var(--ds-3);
+  border: 1px solid var(--ds-border-strong);
+  border-radius: var(--ds-radius);
+  background: var(--ds-surface-2);
+  color: var(--ds-text);
+  font: inherit;
+  font-size: var(--ds-fs-sm);
+  font-weight: var(--ds-fw-semibold);
+  cursor: pointer;
+  &:hover { border-color: var(--ds-accent); }
+  &:focus-visible { outline: none; box-shadow: var(--ds-focus); }
+  &.is-active {
+    border-color: var(--ds-selected-edge);
+    background: var(--ds-selected-fill);
+    box-shadow: inset 0 0 0 1px var(--ds-selected-edge);
+  }
+}
+.rk-view__note { font-size: var(--ds-fs-xs); color: var(--ds-text-2); &.is-error { color: var(--ds-danger); } }
+
+// Most-reported unit(s): a dark outline over a white halo, under the selection.
+.map-top__halo { fill: none; stroke: #fff; stroke-width: 5; pointer-events: none; }
+.map-top__line { fill: none; stroke: var(--ds-text); stroke-width: 2; stroke-dasharray: 5 3; pointer-events: none; }
+.map-top-chip {
+  display: inline-block;
+  padding: 2px var(--ds-2);
+  border-radius: var(--ds-radius-xs);
+  background: var(--ds-surface-2);
+  border: 1px solid var(--ds-border);
+  font-size: var(--ds-fs-xs);
+  color: var(--ds-text);
+}
+.map-top-chip__k { font-weight: var(--ds-fw-semibold); text-transform: uppercase; letter-spacing: 0.05em; color: var(--ds-text-3); }
